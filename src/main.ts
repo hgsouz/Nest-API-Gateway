@@ -8,13 +8,52 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Nosso middleware de proteção contra multiplas requisições por exemplo
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data', 'https:'],
+        },
+      },
+      crossOriginEmbedderPolicy: false,
+      hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true,
+      },
+    }),
+  );
 
   // O CORS habilita o .env em nossa aplicação e aqui estamos configurando ele e disponibilizando o que precisamos
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: (origin: any, callback: any) => {
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || ['*'];
+
+      if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Content-type', 'Autorization'],
+    allowedHeaders: [
+      'Content-type',
+      'Autorization',
+      'X-Requested-with',
+      'Accept',
+      'Origin',
+      'Acess-Control-Request-Method',
+      'Acess-Control-Request-Headers',
+    ],
+    credentials: true,
+    maxAge: 86400,
   });
 
   // Aqui validamos automaticamente o que foi enviado como strings e etc
